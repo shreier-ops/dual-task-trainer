@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dual Task Trainer</title>
+<style>
+/* ══════════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════════ */
+:root {
+  --bg:       #f1f5f9;
+  --surface:  #ffffff;
+  --surface2: #f8fafc;
+  --border:   #e2e8f0;
+  --text:     #0f172a;
+  --text2:    #64748b;
+  --accent:   #0ea5e9;
+  --a-dim:    #e0f2fe;
+  --a-dark:   #0284c7;
+  --green:    #22c55e;
+  --g-dim:    #dcfce7;
+  --red:      #ef4444;
+  --r-dim:    #fee2e2;
+  --amber:    #f59e0b;
+  --radius:   14px;
+  --nav-h:    52px;
+  --shadow:   0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.07);
+  --shadow-lg:0 2px 8px rgba(0,0,0,.05),0 12px 40px rgba(0,0,0,.1);
+}
+
+*  { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+button { font-family: inherit; cursor: pointer; }
+
+/* ══════════════════════════════════════════
+   NAV BAR
+══════════════════════════════════════════ */
+#nav {
+  height: var(--nav-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 0 var(--border);
+  z-index: 30;
+}
+#nav-logo {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.4px;
+  flex: 1;
+  color: var(--text);
+}
+#nav-logo span { color: var(--accent); }
+
+#nav-tabs {
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.ntab {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text2);
+  transition: all .16s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.ntab.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+}
+
+/* ══════════════════════════════════════════
+   SCREENS
+══════════════════════════════════════════ */
+.screen { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+.screen.on { display: flex; }
+
+/* ══════════════════════════════════════════
+   SHARED COMPONENTS
+══════════════════════════════════════════ */
+.pill-bar {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  transition: all .14s;
+  white-space: nowrap;
+}
+.pill:hover { border-color: var(--accent); color: var(--accent); }
+.pill.on  { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pill.on-g{ background: var(--green);  border-color: var(--green);  color: #fff; }
+
+.big-btn {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 11px 22px;
+  border-radius: 10px;
+  border: none;
+  transition: all .12s;
+}
+.big-btn:active { transform: scale(.95); }
+.ok-btn  { background: var(--g-dim); color: var(--green); }
+.ok-btn:hover  { background: var(--green); color: #fff; }
+.err-btn { background: var(--r-dim); color: var(--red); }
+.err-btn:hover { background: var(--red); color: #fff; }
+
+.sm-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 15px;
+  border-radius: 9px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  transition: all .12s;
+  white-space: nowrap;
+}
+.sm-btn:hover { border-color: var(--accent); color: var(--accent); }
+.sm-btn.go { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sm-btn.go:hover { background: var(--a-dark); }
+
+/* screen flash */
+#flash {
+  position: fixed; inset: 0;
+  pointer-events: none; opacity: 0; z-index: 999;
+}
+#flash.pop { animation: flashout .3s ease-out forwards; }
+@keyframes flashout { 0%{opacity:.75} 100%{opacity:0} }
+
+/* rule-switch overlay */
+#sw-ov {
+  position: fixed; inset: 0;
+  background: rgba(255,255,255,.94);
+  backdrop-filter: blur(10px);
+  z-index: 500;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+#sw-ov.on { opacity: 1; pointer-events: all; }
+#sw-msg {
+  font-size: clamp(26px,5vw,50px);
+  font-weight: 900;
+  color: var(--accent);
+  text-align: center;
+  animation: sway .6s ease infinite alternate;
+}
+#sw-sub { margin-top: 10px; font-size: 13px; color: var(--text2); }
+@keyframes sway { to { transform: scale(1.06); } }
+
+/* ══════════════════════════════════════════
+   STROOP SCREEN
+══════════════════════════════════════════ */
+#stroop { background: var(--bg); }
+
+#s-ctrl {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.s-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.s-lbl {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text2);
+  min-width: 68px;
+  flex-shrink: 0;
+}
+
+/* stroop center */
+#s-mid {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+#s-arena {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+#s-banner {
+  position: absolute; top: 0; left: 0; right: 0;
+  background: var(--a-dim);
+  border-bottom: 2px solid var(--accent);
+  color: var(--accent);
+  font-size: 14px; font-weight: 700;
+  text-align: center; padding: 10px;
+  transform: translateY(-110%);
+  transition: transform .22s cubic-bezier(.34,1.56,.64,1);
+  z-index: 5;
+}
+#s-banner.on { transform: translateY(0); }
+
+#s-nogo-badge {
+  position: absolute; top: 54px;
+  background: #fff7ed; border: 1.5px solid #f97316; color: #c2410c;
+  font-size: 11px; font-weight: 700;
+  padding: 4px 14px; border-radius: 20px;
+  opacity: 0; transform: scale(.8);
+  transition: opacity .15s, transform .15s;
+  pointer-events: none;
+}
+#s-nogo-badge.on { opacity: 1; transform: scale(1); }
+
+#s-word {
+  font-size: clamp(58px, 12vw, 185px);
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  padding: 0 16px;
+  color: var(--text2);
+}
+#s-word.pop { animation: wordpop .17s cubic-bezier(.34,1.56,.64,1); }
+@keyframes wordpop {
+  0%   { transform: scale(.75); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+#s-foot {
+  position: absolute; bottom: 12px;
+  font-size: 11px; color: var(--text2); letter-spacing: 1px;
+}
+#s-foot b { color: var(--accent); }
+
+#s-bdots {
+  position: absolute; bottom: 36px;
+  display: flex; gap: 7px;
+}
+.bdot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.bdot.cur  { background: var(--amber); }
+.bdot.done { background: var(--green); }
+
+#s-veil {
+  position: absolute; inset: 0;
+  background: rgba(248,250,252,.88);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 800; color: var(--text2); letter-spacing: 5px;
+  opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 10;
+}
+#s-veil.on { opacity: 1; pointer-events: all; }
+
+/* stroop score panel */
+#s-scores {
+  width: 116px; flex-shrink: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  align-items: center; padding: 14px 10px;
+}
+.sc { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; }
+.sc-l { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text2); }
+.sc-n { font-size: 46px; font-weight: 900; line-height: 1; }
+.sc-n.g { color: var(--green); }
+.sc-n.r { color: var(--red); }
+.sc-n.y { color: var(--amber); }
+.sc-sep { height: 1px; background: var(--border); width: 100%; margin: 4px 0 10px; }
+#s-best { font-size: 10px; color: var(--text2); margin-top: -4px; margin-bottom: 8px; }
+#s-best b { color: var(--text); }
+#s-acc-wrap { width: 100%; margin-top: auto; }
+.acc-lbl { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text2); text-align: center; }
+#s-acc-val { font-size: 18px; font-weight: 800; text-align: center; margin: 2px 0 4px; }
+#s-acc-bg  { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+#s-acc-bar { height: 100%; width: 0; border-radius: 2px; background: var(--green); transition: width .4s, background .4s; }
+#s-clock { font-size: 11px; font-weight: 700; color: var(--text2); text-align: center; margin-top: 10px; }
+
+/* stroop bottom */
+#s-bot {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 9px 14px;
+  display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+  flex-shrink: 0; flex-wrap: wrap;
+}
+
+/* ══════════════════════════════════════════
+   DOBBLE SCREEN
+══════════════════════════════════════════ */
+#dobble {
+  background: var(--bg);
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 14px;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+/* dobble top row */
+#d-toprow {
+  width: 100%; max-width: 700px;
+  display: flex; align-items: center;
+  justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.d-score-chips { display: flex; gap: 8px; }
+.d-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 7px 16px;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: var(--shadow);
+  min-width: 64px;
+}
+.d-chip-lbl { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text2); }
+.d-chip-val { font-size: 24px; font-weight: 900; line-height: 1.1; }
+.d-chip-val.g { color: var(--green); }
+.d-chip-val.r { color: var(--red); }
+.d-chip-val.b { color: var(--accent); }
+
+.d-diff-wrap { display: flex; align-items: center; gap: 7px; }
+.d-diff-lbl  { font-size: 11px; font-weight: 700; color: var(--text2); }
+
+/* cards row */
+#d-cards {
+  display: flex; gap: 20px;
+  align-items: center; justify-content: center;
+  flex-shrink: 0; flex-wrap: wrap;
+}
+.d-card {
+  width: 270px; height: 270px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  border: 3px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: box-shadow .2s;
+}
+.d-card:first-child { transform: rotate(-4deg); }
+.d-card:last-child  { transform: rotate(4deg); }
+.d-card.correct-glow { box-shadow: 0 0 0 4px var(--green), var(--shadow-lg); }
+.d-card.error-shake  { animation: dshake .35s ease; }
+@keyframes dshake {
+  0%,100% { transform: rotate(4deg); }
+  25%      { transform: rotate(4deg) translateX(8px); }
+  75%      { transform: rotate(4deg) translateX(-8px); }
+}
+.d-card:first-child.error-shake {
+  animation: dshake2 .35s ease;
+}
+@keyframes dshake2 {
+  0%,100% { transform: rotate(-4deg); }
+  25%      { transform: rotate(-4deg) translateX(8px); }
+  75%      { transform: rotate(-4deg) translateX(-8px); }
+}
+
+/* symbols inside card */
+.dsym {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  line-height: 1.1;
+  border-radius: 8px;
+  padding: 2px 5px;
+  transition: transform .12s, background .12s;
+  white-space: nowrap;
+  font-weight: 700;
+  text-align: center;
+}
+.dsym:hover { transform: translate(-50%,-50%) scale(1.15); }
+.dsym:active { transform: translate(-50%,-50%) scale(.9); }
+.dsym.match-glow {
+  color: var(--green) !important;
+  background: var(--g-dim) !important;
+  animation: symglow .4s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+.dsym.wrong-flash {
+  color: var(--red) !important;
+  background: var(--r-dim) !important;
+  animation: symwrong .35s ease;
+}
+@keyframes symglow  { 0%{transform:translate(-50%,-50%) scale(.7)} 60%{transform:translate(-50%,-50%) scale(1.3)} 100%{transform:translate(-50%,-50%) scale(1.15)} }
+@keyframes symwrong { 0%,100%{transform:translate(-50%,-50%)} 33%{transform:translate(calc(-50% + 5px),-50%)} 66%{transform:translate(calc(-50% - 5px),-50%)} }
+
+/* voice bar */
+#d-voicebar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 18px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: var(--shadow);
+  min-width: 220px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#d-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--border); flex-shrink: 0; transition: background .2s;
+}
+#d-dot.on { background: var(--red); animation: blink .75s infinite; }
+#d-dot.ok { background: var(--green); animation: none; }
+@keyframes blink { 50%{opacity:.25} }
+#d-status { font-size: 12px; color: var(--text2); font-weight: 500; }
+#d-heard  { font-size: 13px; font-weight: 700; }
+
+/* motor cue */
+#d-cue {
+  font-size: 13px; font-weight: 600; color: var(--accent);
+  text-align: center; min-height: 18px; flex-shrink: 0;
+}
+
+/* dobble bottom */
+#d-bot {
+  display: flex; gap: 8px; align-items: center;
+  justify-content: center; flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.listen-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 24px;
+  border: 2px solid var(--accent);
+  background: var(--a-dim);
+  color: var(--accent);
+  transition: all .15s;
+}
+.listen-btn.on { background: var(--accent); color: #fff; }
+.listen-btn:hover { background: var(--accent); color: #fff; }
+
+/* ══════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════ */
+@media (max-width: 540px) {
+  .d-card { width: 190px; height: 190px; }
+  #s-scores { width: 88px; }
+  .sc-n { font-size: 34px; }
+  .s-lbl { min-width: 50px; font-size: 8px; }
+  .pill { font-size: 10px; padding: 4px 9px; }
+}
+@media (max-width: 380px) {
+  .d-card { width: 155px; height: 155px; }
+  #d-cards { gap: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+
+<div id="sw-ov">
+  <div id="sw-msg">עכשיו: מילה</div>
+  <div id="sw-sub">ממשיך בעוד 2 שניות…</div>
+</div>
+
+<!-- ═══════ NAV ═══════ -->
+<nav id="nav">
+  <div id="nav-logo">Dual Task <span>Trainer</span></div>
+  <div id="nav-tabs">
+    <button class="ntab on" data-tab="stroop">⚡ סטרופ</button>
+    <button class="ntab"    data-tab="dobble">🎯 דובל</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     STROOP SCREEN
+═══════════════════════════════════════════ -->
+<div id="stroop" class="screen on">
+
+  <div id="s-ctrl">
+    <div class="s-row">
+      <span class="s-lbl">מצב תגובה</span>
+      <div class="pill-bar" id="sg-mode">
+        <button class="pill on" data-v="word">מילה</button>
+        <button class="pill"    data-v="color">צבע</button>
+        <button class="pill"    data-v="auto">החלפה אוטו׳</button>
+      </div>
+      <span class="s-lbl" style="margin-right:6px">מהירות</span>
+      <div class="pill-bar" id="sg-speed">
+        <button class="pill"    data-v="2500">איטי</button>
+        <button class="pill on" data-v="1500">בינוני</button>
+        <button class="pill"    data-v="800">מהיר</button>
+        <button class="pill"    data-v="burst">בלוקים</button>
+      </div>
+    </div>
+    <div class="s-row">
+      <span class="s-lbl">קונגרואנציה</span>
+      <div class="pill-bar" id="sg-cong">
+        <button class="pill"    data-v="match">100% תואם</button>
+        <button class="pill on" data-v="mixed">מעורב</button>
+        <button class="pill"    data-v="conflict">100% סותר</button>
+      </div>
+      <span class="s-lbl" style="margin-right:6px">עצור-לא</span>
+      <div class="pill-bar">
+        <button class="pill" id="s-nogo-pill">כבוי</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="s-mid">
+    <div id="s-arena">
+      <div id="s-banner">הגב לפי: מילה</div>
+      <div id="s-nogo-badge">⛔ אל תגיב</div>
+      <div id="s-word">מוכן</div>
+      <div id="s-bdots"></div>
+      <div id="s-foot">הגב לפי: <b id="s-rule-b">מילה</b></div>
+      <div id="s-veil">מושהה</div>
+    </div>
+
+    <div id="s-scores">
+      <div class="sc"><div class="sc-l">נכון</div><div class="sc-n g" id="ss-ok">0</div></div>
+      <div class="sc-sep"></div>
+      <div class="sc"><div class="sc-l">שגיאות</div><div class="sc-n r" id="ss-err">0</div></div>
+      <div class="sc-sep"></div>
+      <div class="sc"><div class="sc-l">רצף</div><div class="sc-n y" id="ss-str">0</div></div>
+      <div id="s-best">שיא: <b id="ss-best">0</b></div>
+      <div class="sc-sep"></div>
+      <div id="s-acc-wrap">
+        <div class="acc-lbl">דיוק</div>
+        <div id="s-acc-val">—</div>
+        <div id="s-acc-bg"><div id="s-acc-bar"></div></div>
+      </div>
+      <div id="s-clock">0:00</div>
+    </div>
+  </div>
+
+  <div id="s-bot">
+    <button class="big-btn ok-btn"  id="s-ok">✅ נכון</button>
+    <button class="big-btn err-btn" id="s-err">❌ שגיאה</button>
+    <button class="sm-btn" id="s-pause" disabled>⏸ השהה</button>
+    <button class="sm-btn go" id="s-start">▶ התחל</button>
+    <button class="sm-btn" id="s-reset">↺ אפס</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     DOBBLE SCREEN
+═══════════════════════════════════════════ -->
+<div id="dobble" class="screen">
+
+  <div id="d-toprow">
+    <div class="d-score-chips">
+      <div class="d-chip"><div class="d-chip-lbl">נכון</div><div class="d-chip-val g" id="ds-ok">0</div></div>
+      <div class="d-chip"><div class="d-chip-lbl">שגיאות</div><div class="d-chip-val r" id="ds-err">0</div></div>
+      <div class="d-chip"><div class="d-chip-lbl">זמן</div><div class="d-chip-val b" id="ds-time">0:00</div></div>
+    </div>
+    <div class="d-diff-wrap">
+      <span class="d-diff-lbl">רמה:</span>
+      <div class="pill-bar" id="dg-diff">
+        <button class="pill on" data-v="4">קל</button>
+        <button class="pill"    data-v="6">בינוני</button>
+        <button class="pill"    data-v="8">קשה</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="d-cards">
+    <div class="d-card" id="d-c1"></div>
+    <div class="d-card" id="d-c2"></div>
+  </div>
+
+  <div id="d-voicebar">
+    <div id="d-dot"></div>
+    <span id="d-status">לחץ 🎤 כדי להתחיל</span>
+    <span id="d-heard"></span>
+  </div>
+
+  <div id="d-cue">לחץ "סיבוב חדש" להתחלה</div>
+
+  <div id="d-bot">
+    <button class="listen-btn" id="d-listen">🎤 האזנה</button>
+    <button class="sm-btn" id="d-pause">⏸ השהה</button>
+    <button class="sm-btn go" id="d-new">🔄 סיבוב חדש</button>
+    <button class="sm-btn" id="d-reset">↺ אפס</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ── utils ── */
+const $ = id => document.getElementById(id);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const fmt  = s => Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+
+function flash(color) {
+  const f = $('flash');
+  f.style.background = color;
+  f.classList.remove('pop');
+  void f.offsetWidth;
+  f.classList.add('pop');
+}
+
+function initPills(gid, cb) {
+  document.getElementById(gid).addEventListener('click', e => {
+    const b = e.target.closest('[data-v]');
+    if (!b) return;
+    document.getElementById(gid).querySelectorAll('[data-v]').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    cb(b.dataset.v);
+  });
+}
+
+/* ── tab nav ── */
+document.querySelectorAll('.ntab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ntab').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+    btn.classList.add('on');
+    $(btn.dataset.tab).classList.add('on');
+  });
+});
+
+/* ════════════════════════════════════════════
+   STROOP
+════════════════════════════════════════════ */
+const SW   = ['אדום','כחול','ירוק','צהוב'];
+const SCOL = { 'אדום':'#ef4444','כחול':'#3b82f6','ירוק':'#22c55e','צהוב':'#eab308' };
+const SHEB = { word:'מילה', color:'צבע' };
+
+let sRun=false, sPause=false;
+let sMode='word', sRule='word', sSpd=1500, sBurst=false, sCong='mixed', sNogo=false;
+let sOk=0, sEr=0, sSt=0, sBest=0, sSec=0;
+let sTid=null, sSwTid=null, sSwRTid=null, sClk=null, sBN=0, sBT=0;
+
+function sStim() {
+  const w = pick(SW);
+  let c;
+  if      (sCong==='match')    c = w;
+  else if (sCong==='conflict') c = pick(SW.filter(x=>x!==w));
+  else                          c = Math.random()<.5 ? w : pick(SW.filter(x=>x!==w));
+  const nogo = sNogo && Math.random() < .2;
+
+  const el = $('s-word');
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+  el.textContent = w;
+  if (nogo) {
+    el.style.color = 'transparent';
+    el.style.webkitTextStroke = '4px ' + SCOL[c];
+    $('s-nogo-badge').classList.add('on');
+  } else {
+    el.style.color = SCOL[c];
+    el.style.webkitTextStroke = '0px transparent';
+    $('s-nogo-badge').classList.remove('on');
+  }
+}
+
+function sTick() {
+  if (!sRun || sPause) return;
+  sStim();
+  sTid = setTimeout(sTick, sSpd);
+}
+
+function sBurstStart() {
+  if (!sRun || sPause) return;
+  sBT = 3 + Math.floor(Math.random()*3); sBN = 0;
+  const bd = $('s-bdots');
+  bd.innerHTML = '';
+  for (let i=0;i<sBT;i++) { const d=document.createElement('div'); d.className='bdot'; bd.appendChild(d); }
+  sBurstStep();
+}
+function sBurstStep() {
+  if (!sRun || sPause) return;
+  if (sBN >= sBT) {
+    $('s-word').style.opacity = '.15';
+    sTid = setTimeout(() => { $('s-word').style.opacity='1'; sBurstStart(); }, 1500);
+    return;
+  }
+  $('s-bdots').querySelectorAll('.bdot').forEach((d,i) => {
+    d.className = 'bdot' + (i<sBN?' done':i===sBN?' cur':'');
+  });
+  sStim(); sBN++;
+  sTid = setTimeout(sBurstStep, 600);
+}
+
+function sStartStop() {
+  if (sRun && !sPause) { sDoStop(); return; }
+  if (sRun &&  sPause) { sResume(); return; }
+  sRun=true; sPause=false;
+  $('s-start').textContent='■ עצור'; $('s-start').classList.add('go');
+  $('s-pause').disabled=false;
+  sRule = sMode==='auto' ? 'word' : sMode;
+  sSetRule(sRule);
+  sBanner('הגב לפי: ' + SHEB[sRule]);
+  if (sMode==='auto') sSchedSw();
+  sClk = setInterval(() => { if (!sPause) { sSec++; $('s-clock').textContent=fmt(sSec); } }, 1000);
+  sBurst ? sBurstStart() : sTick();
+}
+function sDoStop() {
+  sClearAll(); sRun=false; sPause=false;
+  $('s-start').textContent='▶ התחל'; $('s-start').classList.remove('go');
+  $('s-pause').disabled=true; $('s-pause').textContent='⏸ השהה';
+  $('s-veil').classList.remove('on'); $('sw-ov').classList.remove('on');
+}
+function sDoPause() {
+  sPause=true; clearTimeout(sTid); clearTimeout(sSwTid);
+  $('s-veil').classList.add('on'); $('s-pause').textContent='▶ המשך';
+}
+function sResume() {
+  sPause=false; $('s-veil').classList.remove('on'); $('s-pause').textContent='⏸ השהה';
+  if (sMode==='auto') sSchedSw();
+  sBurst ? sBurstStart() : sTick();
+}
+function sDoReset() {
+  sDoStop();
+  sOk=sEr=sSt=sBest=sSec=sBN=0;
+  const el=$('s-word');
+  el.textContent='מוכן'; el.style.color='#64748b';
+  el.style.webkitTextStroke=''; el.style.opacity='1';
+  $('s-nogo-badge').classList.remove('on');
+  $('s-banner').classList.remove('on');
+  $('s-bdots').innerHTML='';
+  sUpdateSc();
+  $('s-acc-val').textContent='—'; $('s-acc-bar').style.width='0%';
+  $('s-clock').textContent='0:00';
+}
+function sClearAll() { clearTimeout(sTid); clearTimeout(sSwTid); clearTimeout(sSwRTid); clearInterval(sClk); }
+
+function sSchedSw() { sSwTid = setTimeout(sDoSw, 20000 + Math.random()*10000); }
+function sDoSw() {
+  clearTimeout(sTid); sPause=true;
+  sRule = sRule==='word' ? 'color' : 'word';
+  sSetRule(sRule);
+  $('sw-msg').textContent = 'עכשיו: ' + SHEB[sRule];
+  $('sw-ov').classList.add('on');
+  flash('rgba(14,165,233,.12)');
+  sSwRTid = setTimeout(() => {
+    $('sw-ov').classList.remove('on');
+    sPause=false;
+    if (sMode==='auto') sSchedSw();
+    sBurst ? sBurstStart() : sTick();
+  }, 2200);
+}
+
+function sSetRule(r) { $('s-rule-b').textContent = SHEB[r]; }
+function sBanner(t) {
+  const b=$('s-banner'); b.textContent=t; b.classList.add('on');
+  setTimeout(() => b.classList.remove('on'), 2500);
+}
+function sMarkOk() {
+  if (!sRun||sPause) return;
+  sOk++; sSt++; if (sSt>sBest) sBest=sSt;
+  flash('rgba(34,197,94,.18)'); sUpdateSc();
+}
+function sMarkEr() {
+  if (!sRun||sPause) return;
+  sEr++; sSt=0;
+  flash('rgba(239,68,68,.22)'); sUpdateSc();
+}
+function sUpdateSc() {
+  $('ss-ok').textContent=sOk; $('ss-err').textContent=sEr;
+  $('ss-str').textContent=sSt; $('ss-best').textContent=sBest;
+  const t=sOk+sEr;
+  if (t>0) {
+    const p=Math.round(sOk/t*100);
+    $('s-acc-val').textContent=p+'%';
+    $('s-acc-bar').style.width=p+'%';
+    $('s-acc-bar').style.background=p>=80?'#22c55e':p>=60?'#f59e0b':'#ef4444';
+  }
+}
+
+initPills('sg-mode',  v => { sMode=v; if(v!=='auto'){sRule=v;sSetRule(v);} });
+initPills('sg-speed', v => { if(v==='burst'){sBurst=true;sSpd=600;}else{sBurst=false;sSpd=parseInt(v);} });
+initPills('sg-cong',  v => { sCong=v; });
+
+$('s-nogo-pill').addEventListener('click', () => {
+  sNogo=!sNogo;
+  $('s-nogo-pill').textContent=sNogo?'פעיל':'כבוי';
+  $('s-nogo-pill').classList.toggle('on-g', sNogo);
+});
+$('s-ok').addEventListener('click', sMarkOk);
+$('s-err').addEventListener('click', sMarkEr);
+$('s-pause').addEventListener('click', () => { if(!sRun)return; sPause?sResume():sDoPause(); });
+$('s-start').addEventListener('click', sStartStop);
+$('s-reset').addEventListener('click', sDoReset);
+
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const tab = document.querySelector('.ntab.on')?.dataset.tab;
+  if (tab === 'stroop') {
+    if (e.code==='ArrowLeft')  sMarkOk();
+    else if (e.code==='ArrowRight') sMarkEr();
+    else if (e.code==='Space') { e.preventDefault(); sRun?(sPause?sResume():sDoPause()):sStartStop(); }
+    else if (e.code==='KeyR'&&!e.ctrlKey) sDoReset();
+  }
+});
+
+/* ════════════════════════════════════════════
+   DOBBLE
+════════════════════════════════════════════ */
+const POOL = [
+  {t:'🐶 כלב',   k:'כלב'},   {t:'🐱 חתול',  k:'חתול'},
+  {t:'🌳 עץ',    k:'עץ'},    {t:'🚗 מכונית',k:'מכונית'},
+  {t:'☀️ שמש',   k:'שמש'},   {t:'⚽ כדור',  k:'כדור'},
+  {t:'🍎 תפוח',  k:'תפוח'},  {t:'⭐ כוכב',  k:'כוכב'},
+  {t:'🏠 בית',   k:'בית'},   {t:'🐟 דג',    k:'דג'},
+  {t:'🌸 פרח',   k:'פרח'},   {t:'🔥 אש',    k:'אש'},
+  {t:'🌙 ירח',   k:'ירח'},   {t:'❤️ לב',    k:'לב'},
+  {t:'✈️ מטוס',  k:'מטוס'},  {t:'☁️ ענן',   k:'ענן'},
+  {t:'🐘 פיל',   k:'פיל'},   {t:'🦋 פרפר',  k:'פרפר'},
+  {t:'🎸 גיטרה', k:'גיטרה'}, {t:'🎩 כובע',  k:'כובע'},
+  {t:'🎂 עוגה',  k:'עוגה'},  {t:'🍕 פיצה',  k:'פיצה'},
+  {t:'🍌 בננה',  k:'בננה'},  {t:'🎈 בלון',  k:'בלון'},
+];
+
+const MOTOR = [
+  'אמור + צעד ימינה', 'אמור + צעד שמאלה',
+  'אמור + הרם יד ימין','אמור + הכה כף יד',
+  'אמור + סובב','אמור + שב ונעמוד',
+];
+
+/* Positions [cx%, cy%, em] inside circle – pre-validated to stay within r=50% */
+const POS = {
+  4: [[30,30,2.0],[68,26,1.8],[25,68,1.9],[70,68,1.7]],
+  6: [[50,16,1.5],[22,34,1.7],[76,30,1.5],[18,64,1.6],[78,64,1.5],[48,80,1.4]],
+  8: [[50,14,1.3],[22,26,1.5],[76,22,1.4],[13,50,1.3],[82,50,1.3],
+      [25,72,1.4],[72,74,1.4],[50,83,1.2]],
+};
+
+let dDiff=4, dOk=0, dEr=0, dSec=0;
+let dRun=false, dPaused=false;
+let dMatchKey=null;
+let dClk=null, dListening=false, dRecog=null;
+let dLocked=false; // prevent double-fire after correct
+
+function dShuffle(a) {
+  for (let i=a.length-1;i>0;i--) {
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function dGenCards() {
+  const pool = dShuffle([...POOL]);
+  const match = pool[0];
+  dMatchKey = match.k;
+  const rest = pool.slice(1);
+  const n = dDiff;
+  const c1 = dShuffle([match, ...rest.slice(0,   n-1)]);
+  const c2 = dShuffle([match, ...rest.slice(n-1, 2*(n-1))]);
+  return { c1, c2 };
+}
+
+function dRender(elId, syms, highlightKey) {
+  const el = $(elId);
+  el.innerHTML = '';
+  const ps = POS[dDiff] || POS[6];
+  syms.forEach((s, i) => {
+    const p = ps[i] || ps[ps.length-1];
+    const span = document.createElement('span');
+    span.className = 'dsym' + (highlightKey && s.k===highlightKey ? ' match-glow' : '');
+    span.style.left = p[0]+'%';
+    span.style.top  = p[1]+'%';
+    span.style.fontSize = p[2]+'em';
+    span.textContent = s.t;
+    span.dataset.k = s.k;
+    span.addEventListener('click', () => dTap(s.k));
+    el.appendChild(span);
+  });
+}
+
+let dC1=[], dC2=[];
+function dNewRound() {
+  dLocked = false;
+  if (!dRun) {
+    dRun = true;
+    dPaused = false;
+    if (!dClk) dClk = setInterval(() => { if(!dPaused){dSec++;$('ds-time').textContent=fmt(dSec);} }, 1000);
+  }
+  const {c1,c2} = dGenCards();
+  dC1=c1; dC2=c2;
+  dRender('d-c1', c1, null);
+  dRender('d-c2', c2, null);
+  $('d-cue').textContent = pick(MOTOR);
+  $('d-heard').textContent = '';
+  $('d-heard').style.color = '';
+  if (dListening) {
+    $('d-status').textContent = 'מאזין…';
+    dEnsureListening(); // keep mic alive between rounds
+  }
+}
+
+function dOnCorrect() {
+  if (dLocked) return;
+  dLocked = true;
+  dOk++;
+  flash('rgba(34,197,94,.18)');
+  dRender('d-c1', dC1, dMatchKey);
+  dRender('d-c2', dC2, dMatchKey);
+  $('d-c1').classList.add('correct-glow');
+  $('d-c2').classList.add('correct-glow');
+  dUpdateSc();
+  setTimeout(() => {
+    $('d-c1').classList.remove('correct-glow');
+    $('d-c2').classList.remove('correct-glow');
+    dNewRound();
+  }, 700);
+}
+
+function dOnError(tappedKey) {
+  dEr++;
+  flash('rgba(239,68,68,.2)');
+  // shake tapped symbol
+  document.querySelectorAll('.dsym').forEach(s => {
+    if (s.dataset.k === tappedKey) {
+      s.classList.add('wrong-flash');
+      setTimeout(() => s.classList.remove('wrong-flash'), 400);
+    }
+  });
+  dUpdateSc();
+}
+
+function dTap(key) {
+  if (!dRun || dPaused || dLocked) return;
+  if (key === dMatchKey) dOnCorrect();
+  else dOnError(key);
+}
+
+function dCheckVoice(text) {
+  if (!dRun || dPaused || dLocked) return;
+  const t = text.trim();
+  $('d-heard').textContent = '"' + t + '"';
+  if (t === dMatchKey || t.includes(dMatchKey)) {
+    $('d-heard').style.color = '#22c55e';
+    $('d-status').textContent = '✓ נכון!';
+    dOnCorrect();
+    // dNewRound() will reset status to מאזין… automatically
+  } else if (t.length > 0) {
+    $('d-heard').style.color = '#ef4444';
+    $('d-status').textContent = '✗ נסה שוב';
+    dEr++;
+    flash('rgba(239,68,68,.2)');
+    dUpdateSc();
+    setTimeout(() => {
+      if (dListening) {
+        $('d-status').textContent = 'מאזין…';
+        $('d-heard').textContent = '';
+        $('d-heard').style.color = '';
+        dEnsureListening();
+      }
+    }, 900);
+  }
+}
+
+function dUpdateSc() {
+  $('ds-ok').textContent  = dOk;
+  $('ds-err').textContent = dEr;
+}
+
+function dDoReset() {
+  dRun=false; dPaused=false;
+  clearInterval(dClk); dClk=null;
+  dOk=dEr=dSec=0;
+  $('ds-ok').textContent='0'; $('ds-err').textContent='0'; $('ds-time').textContent='0:00';
+  $('d-c1').innerHTML=''; $('d-c2').innerHTML='';
+  $('d-status').textContent='לחץ 🎤 כדי להתחיל';
+  $('d-heard').textContent='';
+  $('d-cue').textContent='לחץ "סיבוב חדש" להתחלה';
+  $('d-pause').textContent='⏸ השהה';
+  dStopListen();
+}
+
+function dTogglePause() {
+  if (!dRun) return;
+  dPaused = !dPaused;
+  $('d-pause').textContent = dPaused ? '▶ המשך' : '⏸ השהה';
+}
+
+/* ── Voice Recognition ── */
+let dRecogRunning = false;
+
+function dInitRecog() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  const r = new SR();
+  r.lang = 'he-IL';
+  r.continuous = true;
+  r.interimResults = true;
+  r.onstart = () => { dRecogRunning = true; };
+  r.onresult = e => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    // show interim in real-time
+    if (interim && !dLocked) {
+      $('d-heard').textContent = interim;
+      $('d-heard').style.color = '#64748b';
+    }
+    if (final) dCheckVoice(final.trim());
+  };
+  r.onerror = e => { if (e.error !== 'no-speech') dRecogRunning = false; };
+  r.onend   = () => {
+    dRecogRunning = false;
+    // always restart if mic is supposed to be on
+    if (dListening) {
+      setTimeout(() => {
+        if (dListening) try { r.start(); } catch(err) {}
+      }, 80);
+    }
+  };
+  return r;
+}
+
+function dEnsureListening() {
+  if (!dListening || !dRecog) return;
+  if (!dRecogRunning) try { dRecog.start(); } catch(e) {}
+}
+
+function dStartListen() {
+  if (!dRecog) dRecog = dInitRecog();
+  if (!dRecog) { $('d-status').textContent = 'זיהוי קול לא נתמך בדפדפן זה'; return; }
+  dListening = true;
+  $('d-dot').className = 'on';
+  $('d-status').textContent = 'מאזין…';
+  $('d-listen').classList.add('on');
+  $('d-listen').textContent = '🔴 עצור האזנה';
+  if (!dRun) dNewRound();
+  dEnsureListening();
+}
+
+function dStopListen() {
+  dListening = false;
+  dRecogRunning = false;
+  if (dRecog) try { dRecog.stop(); } catch(e) {}
+  $('d-dot').className = '';
+  $('d-status').textContent = 'לחץ 🎤 כדי להתחיל';
+  $('d-listen').classList.remove('on');
+  $('d-listen').textContent = '🎤 האזנה';
+}
+
+$('d-listen').addEventListener('click', () => { dListening ? dStopListen() : dStartListen(); });
+$('d-pause').addEventListener('click',  dTogglePause);
+$('d-new').addEventListener('click',    dNewRound);
+$('d-reset').addEventListener('click',  dDoReset);
+initPills('dg-diff', v => { dDiff=parseInt(v); if(dRun) dNewRound(); });
+</script>
+</body>
+</html>
