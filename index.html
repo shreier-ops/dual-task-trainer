@@ -192,6 +192,21 @@ button { font-family: inherit; cursor: pointer; }
 ══════════════════════════════════════════ */
 #stroop { background: var(--bg); }
 
+/* settings toggle (mobile only) */
+#s-settings-btn {
+  display: none;
+  width: 100%;
+  background: var(--surface);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 9px 14px;
+  font-size: 13px; font-weight: 700;
+  color: var(--text2);
+  cursor: pointer;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 #s-ctrl {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -200,6 +215,13 @@ button { font-family: inherit; cursor: pointer; }
   flex-direction: column;
   gap: 7px;
   flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  #s-settings-btn { display: block; }
+  #s-ctrl { display: none; }
+  #s-ctrl.open { display: flex; }
+  .cbtn { font-size: 20px; padding: 18px 0; }
 }
 .s-row {
   display: flex;
@@ -567,6 +589,7 @@ button { font-family: inherit; cursor: pointer; }
 ═══════════════════════════════════════════ -->
 <div id="stroop" class="screen on">
 
+  <button id="s-settings-btn">⚙ הגדרות ▾</button>
   <div id="s-ctrl">
     <div class="s-row">
       <span class="s-lbl">מצב תגובה</span>
@@ -577,8 +600,9 @@ button { font-family: inherit; cursor: pointer; }
       </div>
       <span class="s-lbl" style="margin-right:6px">מהירות</span>
       <div class="pill-bar" id="sg-speed">
+        <button class="pill on" data-v="manual">ידני ⚕</button>
         <button class="pill"    data-v="2500">איטי</button>
-        <button class="pill on" data-v="1500">בינוני</button>
+        <button class="pill"    data-v="1500">בינוני</button>
         <button class="pill"    data-v="800">מהיר</button>
         <button class="pill"    data-v="burst">בלוקים</button>
       </div>
@@ -633,6 +657,7 @@ button { font-family: inherit; cursor: pointer; }
       <button class="cbtn disabled" data-c="צהוב">צהוב</button>
     </div>
     <div id="s-ctrlrow">
+      <button class="sm-btn" id="s-next">⏭ הבא</button>
       <button class="sm-btn" id="s-pause" disabled>⏸ השהה</button>
       <button class="sm-btn go" id="s-start">▶ התחל</button>
       <button class="sm-btn" id="s-reset">↺ אפס</button>
@@ -727,7 +752,7 @@ const SCOL = { 'אדום':'#ef4444','כחול':'#3b82f6','ירוק':'#22c55e','�
 const SHEB = { word:'מילה', color:'צבע' };
 
 let sRun=false, sPause=false;
-let sMode='word', sRule='word', sSpd=1500, sBurst=false, sCong='mixed', sNogo=false;
+let sMode='word', sRule='word', sSpd=1500, sBurst=false, sManual=true, sCong='mixed', sNogo=false;
 let sOk=0, sEr=0, sSt=0, sBest=0, sSec=0;
 let sTid=null, sSwTid=null, sSwRTid=null, sClk=null, sBN=0, sBT=0;
 let sCorrectAnswer=null, sNogoActive=false, sResponded=false;
@@ -786,17 +811,25 @@ function sResponse(colorName) {
     sMarkEr(); sFeedback(false);
   }
 
-  sTid = setTimeout(() => {
-    if (sRun && !sPause) sBurst ? sBurstStep() : sTick();
-  }, 550);
+  if (!sManual) {
+    sTid = setTimeout(() => {
+      if (sRun && !sPause) sBurst ? sBurstStep() : sTick();
+    }, 550);
+  }
+  // manual mode: wait for therapist to press "הבא"
+}
+
+function sAdvance() {
+  if (!sRun || sPause) return;
+  $('s-fb').className = '';
+  sBurst ? sBurstStep() : sTick();
 }
 
 function sTick() {
   if (!sRun || sPause) return;
-  // no-go trial: user correctly did NOT respond → score correct
   if (sNogoActive && !sResponded) sMarkOk();
   sStim();
-  sTid = setTimeout(sTick, sSpd);
+  if (!sManual) sTid = setTimeout(sTick, sSpd);
 }
 
 function sBurstStart() {
@@ -913,7 +946,12 @@ function sUpdateSc() {
 }
 
 initPills('sg-mode',  v => { sMode=v; if(v!=='auto'){sRule=v;sSetRule(v);} });
-initPills('sg-speed', v => { if(v==='burst'){sBurst=true;sSpd=600;}else{sBurst=false;sSpd=parseInt(v);} });
+initPills('sg-speed', v => {
+  if (v==='manual') { sManual=true; sBurst=false; }
+  else if (v==='burst') { sManual=false; sBurst=true; sSpd=600; }
+  else { sManual=false; sBurst=false; sSpd=parseInt(v); }
+  $('s-next').style.display = sManual ? '' : 'none';
+});
 initPills('sg-cong',  v => { sCong=v; });
 
 $('s-nogo-pill').addEventListener('click', () => {
@@ -924,9 +962,15 @@ $('s-nogo-pill').addEventListener('click', () => {
 document.querySelectorAll('.cbtn').forEach(b => {
   b.addEventListener('click', () => sResponse(b.dataset.c));
 });
+$('s-next').addEventListener('click', sAdvance);
 $('s-pause').addEventListener('click', () => { if(!sRun)return; sPause?sResume():sDoPause(); });
 $('s-start').addEventListener('click', sStartStop);
 $('s-reset').addEventListener('click', sDoReset);
+$('s-settings-btn').addEventListener('click', () => {
+  const ctrl = $('s-ctrl');
+  const open = ctrl.classList.toggle('open');
+  $('s-settings-btn').textContent = open ? '⚙ הגדרות ▴' : '⚙ הגדרות ▾';
+});
 
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
