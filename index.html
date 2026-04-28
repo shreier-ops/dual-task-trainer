@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Dual Task Trainer</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0ea5e9">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DualTask">
+<link rel="apple-touch-icon" href="icon.svg">
 <style>
 /* ══════════════════════════════════════════
    DESIGN TOKENS
@@ -310,14 +318,65 @@ button { font-family: inherit; cursor: pointer; }
 #s-acc-bar { height: 100%; width: 0; border-radius: 2px; background: var(--green); transition: width .4s, background .4s; }
 #s-clock { font-size: 11px; font-weight: 700; color: var(--text2); text-align: center; margin-top: 10px; }
 
+/* stroop instruction */
+#s-instruction {
+  font-size: clamp(18px, 4vw, 28px);
+  font-weight: 800;
+  color: var(--text2);
+  padding: 8px 28px;
+  background: var(--a-dim);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  margin-bottom: 12px;
+  letter-spacing: 0.3px;
+  text-align: center;
+}
+#s-instruction span { color: var(--accent); font-size: 1.1em; }
+
+/* stroop feedback flash */
+#s-fb {
+  position: absolute;
+  font-size: 90px; font-weight: 900;
+  opacity: 0; pointer-events: none;
+  transition: opacity .12s; z-index: 4;
+}
+#s-fb.ok  { color: var(--green); }
+#s-fb.er  { color: var(--red); }
+#s-fb.show { opacity: 1; }
+
+/* stroop color buttons */
+#s-colorbts {
+  display: flex; gap: 8px; width: 100%;
+  justify-content: center; padding: 8px 12px 4px;
+}
+.cbtn {
+  flex: 1; max-width: 88px;
+  padding: 15px 0;
+  border-radius: 14px;
+  border: 3px solid rgba(0,0,0,.18);
+  font-size: 18px; font-weight: 900;
+  color: #fff; cursor: pointer;
+  transition: transform .08s, box-shadow .08s;
+  text-shadow: 0 1px 3px rgba(0,0,0,.3);
+  box-shadow: 0 4px 0 rgba(0,0,0,.18);
+}
+.cbtn:active { transform: scale(.93) translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
+.cbtn.disabled { opacity: .28; pointer-events: none; }
+.cbtn[data-c="אדום"] { background:#ef4444; border-color:#b91c1c; }
+.cbtn[data-c="כחול"] { background:#3b82f6; border-color:#1d4ed8; }
+.cbtn[data-c="ירוק"]  { background:#22c55e; border-color:#15803d; }
+.cbtn[data-c="צהוב"] { background:#eab308; border-color:#a16207; color:#1c1917; text-shadow:none; }
+
+#s-ctrlrow { display:flex; gap:8px; justify-content:center; padding:2px 12px 0; }
+
 /* stroop bottom */
 #s-bot {
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding: 9px 14px;
-  display: flex; align-items: center;
-  justify-content: center; gap: 8px;
-  flex-shrink: 0; flex-wrap: wrap;
+  padding: 6px 14px 10px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  flex-shrink: 0;
 }
 
 /* ══════════════════════════════════════════
@@ -542,9 +601,10 @@ button { font-family: inherit; cursor: pointer; }
     <div id="s-arena">
       <div id="s-banner">הגב לפי: מילה</div>
       <div id="s-nogo-badge">⛔ אל תגיב</div>
+      <div id="s-instruction">לחץ לפי: <span id="s-rule-b">מילה</span></div>
       <div id="s-word">מוכן</div>
+      <div id="s-fb"></div>
       <div id="s-bdots"></div>
-      <div id="s-foot">הגב לפי: <b id="s-rule-b">מילה</b></div>
       <div id="s-veil">מושהה</div>
     </div>
 
@@ -566,11 +626,17 @@ button { font-family: inherit; cursor: pointer; }
   </div>
 
   <div id="s-bot">
-    <button class="big-btn ok-btn"  id="s-ok">✅ נכון</button>
-    <button class="big-btn err-btn" id="s-err">❌ שגיאה</button>
-    <button class="sm-btn" id="s-pause" disabled>⏸ השהה</button>
-    <button class="sm-btn go" id="s-start">▶ התחל</button>
-    <button class="sm-btn" id="s-reset">↺ אפס</button>
+    <div id="s-colorbts">
+      <button class="cbtn disabled" data-c="אדום">אדום</button>
+      <button class="cbtn disabled" data-c="כחול">כחול</button>
+      <button class="cbtn disabled" data-c="ירוק">ירוק</button>
+      <button class="cbtn disabled" data-c="צהוב">צהוב</button>
+    </div>
+    <div id="s-ctrlrow">
+      <button class="sm-btn" id="s-pause" disabled>⏸ השהה</button>
+      <button class="sm-btn go" id="s-start">▶ התחל</button>
+      <button class="sm-btn" id="s-reset">↺ אפס</button>
+    </div>
   </div>
 </div>
 
@@ -605,8 +671,6 @@ button { font-family: inherit; cursor: pointer; }
     <span id="d-status">לחץ 🎤 כדי להתחיל</span>
     <span id="d-heard"></span>
   </div>
-
-  <div id="d-cue">לחץ "סיבוב חדש" להתחלה</div>
 
   <div id="d-bot">
     <button class="listen-btn" id="d-listen">🎤 האזנה</button>
@@ -666,6 +730,7 @@ let sRun=false, sPause=false;
 let sMode='word', sRule='word', sSpd=1500, sBurst=false, sCong='mixed', sNogo=false;
 let sOk=0, sEr=0, sSt=0, sBest=0, sSec=0;
 let sTid=null, sSwTid=null, sSwRTid=null, sClk=null, sBN=0, sBT=0;
+let sCorrectAnswer=null, sNogoActive=false, sResponded=false;
 
 function sStim() {
   const w = pick(SW);
@@ -674,6 +739,11 @@ function sStim() {
   else if (sCong==='conflict') c = pick(SW.filter(x=>x!==w));
   else                          c = Math.random()<.5 ? w : pick(SW.filter(x=>x!==w));
   const nogo = sNogo && Math.random() < .2;
+
+  sCorrectAnswer = sRule === 'word' ? w : c;
+  sNogoActive = nogo;
+  sResponded = false;
+  setColorBtnsEnabled(true); // always show buttons — pressing during no-go = error
 
   const el = $('s-word');
   el.classList.remove('pop');
@@ -691,8 +761,40 @@ function sStim() {
   }
 }
 
+function setColorBtnsEnabled(on) {
+  document.querySelectorAll('.cbtn').forEach(b => b.classList.toggle('disabled', !on));
+}
+
+function sFeedback(ok) {
+  const fb = $('s-fb');
+  fb.textContent = ok ? '✓' : '✗';
+  fb.className = (ok ? 'ok' : 'er') + ' show';
+  setTimeout(() => { fb.classList.remove('show'); }, 480);
+}
+
+function sResponse(colorName) {
+  if (!sRun || sPause || sResponded) return;
+  sResponded = true;
+  setColorBtnsEnabled(false);
+  clearTimeout(sTid);
+
+  if (sNogoActive) {
+    sMarkEr(); sFeedback(false);
+  } else if (colorName === sCorrectAnswer) {
+    sMarkOk(); sFeedback(true);
+  } else {
+    sMarkEr(); sFeedback(false);
+  }
+
+  sTid = setTimeout(() => {
+    if (sRun && !sPause) sBurst ? sBurstStep() : sTick();
+  }, 550);
+}
+
 function sTick() {
   if (!sRun || sPause) return;
+  // no-go trial: user correctly did NOT respond → score correct
+  if (sNogoActive && !sResponded) sMarkOk();
   sStim();
   sTid = setTimeout(sTick, sSpd);
 }
@@ -707,7 +809,9 @@ function sBurstStart() {
 }
 function sBurstStep() {
   if (!sRun || sPause) return;
+  if (sNogoActive && !sResponded && sBN > 0) sMarkOk();
   if (sBN >= sBT) {
+    setColorBtnsEnabled(false);
     $('s-word').style.opacity = '.15';
     sTid = setTimeout(() => { $('s-word').style.opacity='1'; sBurstStart(); }, 1500);
     return;
@@ -737,6 +841,7 @@ function sDoStop() {
   $('s-start').textContent='▶ התחל'; $('s-start').classList.remove('go');
   $('s-pause').disabled=true; $('s-pause').textContent='⏸ השהה';
   $('s-veil').classList.remove('on'); $('sw-ov').classList.remove('on');
+  setColorBtnsEnabled(false);
 }
 function sDoPause() {
   sPause=true; clearTimeout(sTid); clearTimeout(sSwTid);
@@ -750,12 +855,14 @@ function sResume() {
 function sDoReset() {
   sDoStop();
   sOk=sEr=sSt=sBest=sSec=sBN=0;
+  sCorrectAnswer=null; sNogoActive=false; sResponded=false;
   const el=$('s-word');
   el.textContent='מוכן'; el.style.color='#64748b';
   el.style.webkitTextStroke=''; el.style.opacity='1';
   $('s-nogo-badge').classList.remove('on');
   $('s-banner').classList.remove('on');
   $('s-bdots').innerHTML='';
+  $('s-fb').className='';
   sUpdateSc();
   $('s-acc-val').textContent='—'; $('s-acc-bar').style.width='0%';
   $('s-clock').textContent='0:00';
@@ -814,8 +921,9 @@ $('s-nogo-pill').addEventListener('click', () => {
   $('s-nogo-pill').textContent=sNogo?'פעיל':'כבוי';
   $('s-nogo-pill').classList.toggle('on-g', sNogo);
 });
-$('s-ok').addEventListener('click', sMarkOk);
-$('s-err').addEventListener('click', sMarkEr);
+document.querySelectorAll('.cbtn').forEach(b => {
+  b.addEventListener('click', () => sResponse(b.dataset.c));
+});
 $('s-pause').addEventListener('click', () => { if(!sRun)return; sPause?sResume():sDoPause(); });
 $('s-start').addEventListener('click', sStartStop);
 $('s-reset').addEventListener('click', sDoReset);
@@ -824,8 +932,10 @@ document.addEventListener('keydown', e => {
   if (e.repeat) return;
   const tab = document.querySelector('.ntab.on')?.dataset.tab;
   if (tab === 'stroop') {
-    if (e.code==='ArrowLeft')  sMarkOk();
-    else if (e.code==='ArrowRight') sMarkEr();
+    if      (e.code==='Digit1') sResponse('אדום');
+    else if (e.code==='Digit2') sResponse('כחול');
+    else if (e.code==='Digit3') sResponse('ירוק');
+    else if (e.code==='Digit4') sResponse('צהוב');
     else if (e.code==='Space') { e.preventDefault(); sRun?(sPause?sResume():sDoPause()):sStartStop(); }
     else if (e.code==='KeyR'&&!e.ctrlKey) sDoReset();
   }
@@ -849,11 +959,6 @@ const POOL = [
   {t:'🍌 בננה',  k:'בננה'},  {t:'🎈 בלון',  k:'בלון'},
 ];
 
-const MOTOR = [
-  'אמור + צעד ימינה', 'אמור + צעד שמאלה',
-  'אמור + הרם יד ימין','אמור + הכה כף יד',
-  'אמור + סובב','אמור + שב ונעמוד',
-];
 
 /* Positions [cx%, cy%, em] inside circle – pre-validated to stay within r=50% */
 const POS = {
@@ -908,22 +1013,26 @@ function dRender(elId, syms, highlightKey) {
 
 let dC1=[], dC2=[];
 function dNewRound() {
-  dLocked = false;
+  // dLocked stays TRUE if called from dOnCorrect — unlocked only after grace period below
+  // (first start: dLocked is already false so this is safe)
   if (!dRun) {
     dRun = true;
     dPaused = false;
+    dLocked = false; // first start — no need to wait
     if (!dClk) dClk = setInterval(() => { if(!dPaused){dSec++;$('ds-time').textContent=fmt(dSec);} }, 1000);
   }
   const {c1,c2} = dGenCards();
   dC1=c1; dC2=c2;
   dRender('d-c1', c1, null);
   dRender('d-c2', c2, null);
-  $('d-cue').textContent = pick(MOTOR);
   $('d-heard').textContent = '';
   $('d-heard').style.color = '';
   if (dListening) {
     $('d-status').textContent = 'מאזין…';
-    dEnsureListening(); // keep mic alive between rounds
+    // grace period — keep locked for 300ms to ignore echo from previous answer
+    setTimeout(() => { dLocked = false; }, 300);
+  } else {
+    dLocked = false;
   }
 }
 
@@ -963,29 +1072,78 @@ function dTap(key) {
   else dOnError(key);
 }
 
-function dCheckVoice(text) {
-  if (!dRun || dPaused || dLocked) return;
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = [];
+  for (let i = 0; i <= m; i++) dp[i] = [i];
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function dMatch(word) {
+  const h = word.trim();
+  const k = dMatchKey;
+  if (!h || !k) return false;
+  if (h === k || h.includes(k) || k.includes(h)) return true;
+  const maxDist = k.length <= 3 ? 1 : 2;
+  if (levenshtein(h, k) <= maxDist) return true;
+  if (k.length <= 2 && h.length >= 1 && h[0] === k[0]) return true;
+  return false;
+}
+
+// check each word in the transcript individually
+function dMatchAny(transcript) {
+  const words = transcript.trim().split(/\s+/);
+  return words.some(w => dMatch(w));
+}
+
+// extract only the last word (newest) for display
+function dLastWord(transcript) {
+  const words = transcript.trim().split(/\s+/);
+  return words[words.length - 1] || '';
+}
+
+let dLastCorrectTime = 0;
+
+function dCheckVoice(text, isFinal) {
   const t = text.trim();
-  $('d-heard').textContent = '"' + t + '"';
-  if (t === dMatchKey || t.includes(dMatchKey)) {
+  if (!t) return;
+
+  const display = dLastWord(t);
+
+  // always show what we heard — even during lock, so user knows mic is active
+  $('d-heard').textContent = display;
+  $('d-heard').style.color = dLocked ? '#94a3b8' : '#64748b';
+
+  if (!dRun || dPaused || dLocked) return;
+
+  // only check the last 2 words — prevents old accumulated words from false-matching
+  const recent = t.trim().split(/\s+/).slice(-2).join(' ');
+  if (dMatchAny(recent)) {
+    $('d-heard').textContent = display + ' ✓';
     $('d-heard').style.color = '#22c55e';
     $('d-status').textContent = '✓ נכון!';
+    dLastCorrectTime = Date.now();
     dOnCorrect();
-    // dNewRound() will reset status to מאזין… automatically
-  } else if (t.length > 0) {
+  } else if (isFinal) {
+    if (Date.now() - dLastCorrectTime < 1500) return; // echo guard
+    $('d-heard').textContent = display + ' ✗';
     $('d-heard').style.color = '#ef4444';
     $('d-status').textContent = '✗ נסה שוב';
-    dEr++;
     flash('rgba(239,68,68,.2)');
+    dEr++;
     dUpdateSc();
     setTimeout(() => {
-      if (dListening) {
+      if (dListening && !dLocked) {
         $('d-status').textContent = 'מאזין…';
         $('d-heard').textContent = '';
         $('d-heard').style.color = '';
-        dEnsureListening();
       }
-    }, 900);
+    }, 700);
   }
 }
 
@@ -1002,7 +1160,6 @@ function dDoReset() {
   $('d-c1').innerHTML=''; $('d-c2').innerHTML='';
   $('d-status').textContent='לחץ 🎤 כדי להתחיל';
   $('d-heard').textContent='';
-  $('d-cue').textContent='לחץ "סיבוב חדש" להתחלה';
   $('d-pause').textContent='⏸ השהה';
   dStopListen();
 }
@@ -1014,7 +1171,28 @@ function dTogglePause() {
 }
 
 /* ── Voice Recognition ── */
-let dRecogRunning = false;
+let dRecogActive = false;
+let dWatchdog = null;
+
+function dRestartRecog() {
+  if (!dListening || !dRecog) return;
+  try { dRecog.start(); } catch(e) {
+    // InvalidStateError = already starting, retry shortly
+    if (e.name === 'InvalidStateError') setTimeout(dRestartRecog, 250);
+  }
+}
+
+function dStartWatchdog() {
+  clearInterval(dWatchdog);
+  dWatchdog = setInterval(() => {
+    if (dListening && !dRecogActive) dRestartRecog();
+  }, 3000);
+}
+
+function dStopWatchdog() {
+  clearInterval(dWatchdog);
+  dWatchdog = null;
+}
 
 function dInitRecog() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1023,36 +1201,30 @@ function dInitRecog() {
   r.lang = 'he-IL';
   r.continuous = true;
   r.interimResults = true;
-  r.onstart = () => { dRecogRunning = true; };
+  r.onstart = () => { dRecogActive = true; };
   r.onresult = e => {
-    let interim = '', final = '';
+    dRecogActive = true;
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) final += e.results[i][0].transcript;
-      else interim += e.results[i][0].transcript;
+      const txt = e.results[i][0].transcript.trim();
+      const fin = e.results[i].isFinal;
+      dCheckVoice(txt, fin);
     }
-    // show interim in real-time
-    if (interim && !dLocked) {
-      $('d-heard').textContent = interim;
-      $('d-heard').style.color = '#64748b';
-    }
-    if (final) dCheckVoice(final.trim());
   };
-  r.onerror = e => { if (e.error !== 'no-speech') dRecogRunning = false; };
-  r.onend   = () => {
-    dRecogRunning = false;
-    // always restart if mic is supposed to be on
-    if (dListening) {
-      setTimeout(() => {
-        if (dListening) try { r.start(); } catch(err) {}
-      }, 80);
-    }
+  r.onerror = e => {
+    if (e.error === 'no-speech') return;
+    dRecogActive = false;
+    if (dListening) setTimeout(dRestartRecog, 200);
+  };
+  r.onend = () => {
+    dRecogActive = false;
+    if (dListening) setTimeout(dRestartRecog, 150);
   };
   return r;
 }
 
 function dEnsureListening() {
   if (!dListening || !dRecog) return;
-  if (!dRecogRunning) try { dRecog.start(); } catch(e) {}
+  try { dRecog.start(); } catch(e) {} // throws if already running — that's fine
 }
 
 function dStartListen() {
@@ -1065,11 +1237,13 @@ function dStartListen() {
   $('d-listen').textContent = '🔴 עצור האזנה';
   if (!dRun) dNewRound();
   dEnsureListening();
+  dStartWatchdog();
 }
 
 function dStopListen() {
   dListening = false;
-  dRecogRunning = false;
+  dRecogActive = false;
+  dStopWatchdog();
   if (dRecog) try { dRecog.stop(); } catch(e) {}
   $('d-dot').className = '';
   $('d-status').textContent = 'לחץ 🎤 כדי להתחיל';
@@ -1082,6 +1256,11 @@ $('d-pause').addEventListener('click',  dTogglePause);
 $('d-new').addEventListener('click',    dNewRound);
 $('d-reset').addEventListener('click',  dDoReset);
 initPills('dg-diff', v => { dDiff=parseInt(v); if(dRun) dNewRound(); });
+
+/* ── Service Worker (PWA) ── */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
