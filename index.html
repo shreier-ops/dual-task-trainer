@@ -372,22 +372,20 @@ button { font-family: inherit; cursor: pointer; }
   justify-content: center; padding: 8px 12px 4px;
 }
 .cbtn {
-  flex: 1; max-width: 88px;
-  padding: 15px 0;
+  flex: 1; max-width: 100px;
+  padding: 16px 0;
   border-radius: 14px;
-  border: 3px solid rgba(0,0,0,.18);
+  border: 2px solid #cbd5e1;
   font-size: 18px; font-weight: 900;
-  color: #fff; cursor: pointer;
+  color: #1e293b;
+  background: #ffffff;
+  cursor: pointer;
   transition: transform .08s, box-shadow .08s;
-  text-shadow: 0 1px 3px rgba(0,0,0,.3);
-  box-shadow: 0 4px 0 rgba(0,0,0,.18);
+  text-shadow: none;
+  box-shadow: 0 3px 0 #cbd5e1;
 }
-.cbtn:active { transform: scale(.93) translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
+.cbtn:active { transform: scale(.93) translateY(2px); box-shadow: 0 1px 0 #cbd5e1; }
 .cbtn.disabled { opacity: .28; pointer-events: none; }
-.cbtn[data-c="אדום"] { background:#ef4444; border-color:#b91c1c; }
-.cbtn[data-c="כחול"] { background:#3b82f6; border-color:#1d4ed8; }
-.cbtn[data-c="ירוק"]  { background:#22c55e; border-color:#15803d; }
-.cbtn[data-c="צהוב"] { background:#eab308; border-color:#a16207; color:#1c1917; text-shadow:none; }
 
 #s-ctrlrow { display:flex; gap:8px; justify-content:center; padding:2px 12px 0; }
 
@@ -657,7 +655,7 @@ button { font-family: inherit; cursor: pointer; }
       <button class="cbtn disabled" data-c="צהוב">צהוב</button>
     </div>
     <div id="s-ctrlrow">
-      <button class="sm-btn" id="s-next">⏭ הבא</button>
+      <button class="sm-btn" id="s-next" style="display:none">⏭ הבא</button>
       <button class="sm-btn" id="s-pause" disabled>⏸ השהה</button>
       <button class="sm-btn go" id="s-start">▶ התחל</button>
       <button class="sm-btn" id="s-reset">↺ אפס</button>
@@ -811,12 +809,10 @@ function sResponse(colorName) {
     sMarkEr(); sFeedback(false);
   }
 
-  if (!sManual) {
-    sTid = setTimeout(() => {
-      if (sRun && !sPause) sBurst ? sBurstStep() : sTick();
-    }, 550);
-  }
-  // manual mode: wait for therapist to press "הבא"
+  // always advance after response — in manual mode just a bit longer for feedback
+  sTid = setTimeout(() => {
+    if (sRun && !sPause) sBurst ? sBurstStep() : sTick();
+  }, sManual ? 700 : 550);
 }
 
 function sAdvance() {
@@ -950,7 +946,7 @@ initPills('sg-speed', v => {
   if (v==='manual') { sManual=true; sBurst=false; }
   else if (v==='burst') { sManual=false; sBurst=true; sSpd=600; }
   else { sManual=false; sBurst=false; sSpd=parseInt(v); }
-  $('s-next').style.display = sManual ? '' : 'none';
+  $('s-next').style.display = 'none';
 });
 initPills('sg-cong',  v => { sCong=v; });
 
